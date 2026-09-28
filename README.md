@@ -1,472 +1,470 @@
-<a href="https://docs.databricks.com/aws/en/generative-ai/agent-framework/chat-app">
-  <h1 align="center">Databricks Agent Chat Template</h1>
-</a>
+# Kharido — AI-Powered Shopping & Payments on Databricks
 
-<p align="center">
-    A chat application template for interacting with Databricks Agent Serving endpoints, built with ExpressJS, React, Vercel AI SDK, Databricks authentication, and optional Lakebase (database) integration.
-</p>
+Kharido is an end-to-end AI commerce demo built entirely on Databricks. Customers can browse a product catalog, search with natural language, add items to a cart, choose a delivery location, pay, place an order and track delivery — either by **chatting with an AI assistant** or by **clicking through a normal storefront UI**. Both paths read and write the same Unity Catalog tables.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#running-locally"><strong>Running Locally</strong></a> ·
-  <a href="#deployment"><strong>Deployment</strong></a> ·
-  <a href="#optional-chat-ui-features"><strong>Optional Features</strong></a>
-</p>
-<br/>
-
-This template provides a fully functional chat app for custom code agents and Agent Bricks deployed on Databricks,
-but has some [known limitations](#known-limitations) for other use cases. Work is in progress on addressing these limitations.
-
-## Features
-
-- **Databricks Agent and Foundation Model Integration**: Direct connection to Databricks Agent serving endpoints and Agent Bricks
-- **Databricks Authentication**: Uses Databricks authentication to identify end users of the chat app and securely manage their conversations.
-- **Persistent Chat History (Optional)**: Leverages Databricks Lakebase (Postgres) for storing conversations, with governance and tight lakehouse integration. Can also run in ephemeral mode without database.
-- **User Feedback Collection (Optional)**: Thumbs up/down feedback on assistant messages, stored as MLflow assessments on the underlying traces. Requires an MLflow experiment resource to be configured.
-
-## Prerequisites
-
-1. **Databricks serving endpoint**: you need access to a Databricks workspace containing the Agent Bricks or custom agent serving endpoint to chat with.
-2. **Set up Databricks authentication**
-   - Install the latest version of the [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html). On macOS, do this via:
-   ```bash
-   brew install databricks
-   brew upgrade databricks && databricks -v
-   ```
-   - Run the following to configure authentication.
-     In the snippet below, `DATABRICKS_CONFIG_PROFILE` is the name of the Databricks CLI profile under which to configure
-     authentication. If desired, you can update this to a name of your choice, e.g. `dev_workspace`.
-   ```bash
-     export DATABRICKS_CONFIG_PROFILE='chatbot_template'
-     databricks auth login --profile "$DATABRICKS_CONFIG_PROFILE"
-   ```
-
-## Deployment
-
-This project includes a [Databricks Asset Bundle (DAB)](https://docs.databricks.com/aws/en/dev-tools/bundles/apps-tutorial) configuration that simplifies deployment by automatically creating and managing all required resources.
-
-1. **Clone the repo**:
-   ```bash
-   git clone https://github.com/databricks/app-templates
-   cd e2e-chatbot-app-next
-   ```
-2. **Databricks authentication**: Ensure auth is configured as described in [Prerequisites](#prerequisites).
-3. **Specify serving endpoint and address TODOs in databricks.yml**: Address the TODOs in `databricks.yml`, setting the default value of `serving_endpoint_name` to the name of the custom code agent or Agent Bricks endpoint to chat with. The optional commented-out sections allow you to enable:
-   - **Persistent chat history** — uncomment the two optional `TODO` database blocks to provision and bind a Lakebase database. See [Database Modes](#database-modes) for details. **Tip:** run `./scripts/quickstart.sh` to do this automatically.
-   - **User feedback collection** — uncomment the optional `TODO` experiment block and set the experiment ID. Also requires a database (both database `TODO` blocks must be uncommented). See [Feedback Collection](#feedback-collection) for details. **Tip:** run `./scripts/quickstart.sh` to configure both database and feedback automatically.
-
-   - NOTE: if using [Agent Bricks Multi-Agent Supervisor](https://docs.databricks.com/aws/en/generative-ai/agent-bricks/multi-agent-supervisor), you need to additionally grant the app service principal the `CAN_QUERY` permission on the underlying agent(s) that the MAS orchestrates. You can do this by adding those
-     agent serving endpoints as resources in `databricks.yml` (see the NOTE in `databricks.yml` on this)
-4. **Validate the bundle configuration**:
-
-   ```bash
-   databricks bundle validate
-   ```
-
-5. **Deploy the bundle**. The first deployment may take several minutes for provisioning resources (especially if database is enabled), but subsequent deployments are fast:
-
-   ```bash
-   databricks bundle deploy
-   ```
-
-   This creates:
-
-   - **App resource** ready to start
-   - **Lakebase database instance** (only if database resource is uncommented)
-
-6. **Start the app**:
-
-   ```bash
-   databricks bundle run databricks_chatbot
-   ```
-
-7. **View deployment summary** (useful for debugging deployment issues):
-   ```bash
-   databricks bundle summary
-   ```
-
-### Deployment Targets
-
-The bundle supports multiple environments:
-
-- **dev** (default): Development environment
-- **staging**: Staging environment for testing
-- **prod**: Production environment
-
-To deploy to a specific target:
-
-```bash
-databricks bundle deploy -t staging --var serving_endpoint_name="your-endpoint"
-```
-
-## Running Locally
-
-### Quick Start (Recommended)
-
-Use our automated quickstart script for the fastest setup experience:
-
-1. **Clone the repository**:
-
-   ```bash
-   git clone https://github.com/databricks/app-templates
-   cd e2e-chatbot-app-next
-   ```
-
-2. **Run the quickstart script**:
-
-   ```bash
-   ./scripts/quickstart.sh
-   ```
-
-   The quickstart script will:
-   - **Install prerequisites** - Automatically installs jq, nvm, Node.js 20, and Databricks CLI
-   - **Configure authentication** - Helps you select or create a Databricks CLI profile
-   - **Set up serving endpoint** - Prompts for your endpoint name and validates it exists
-   - **Database setup (optional)** - Choose persistent chat history or ephemeral mode
-   - **Deploy to Databricks (optional)** - Optionally deploys resources and provisions database
-   - **Configure local environment** - Automatically creates and populates .env
-   - **Run migrations** - Sets up database schema if database is enabled
-
-   The script handles the entire setup process automatically, including waiting for database provisioning and configuring connection details.
-
-3. **Start the application**:
-
-   Use the convenience script:
-   ```bash
-   ./scripts/start-app.sh
-   ```
-
-   Or manually:
-   ```bash
-   npm install  # Install/update dependencies
-   npm run dev  # Start development server
-   ```
-
-   The app starts on [localhost:3000](http://localhost:3000) (frontend) and [localhost:3001](http://localhost:3001) (backend)
-
-   **Tip:** The `start-app.sh` script is useful for quickly starting the app after initial setup, as it ensures dependencies are up-to-date before starting the dev server.
-
-### Manual Setup (Alternative)
-
-If you prefer to configure the environment manually:
-
-1. **Clone and install**:
-
-   ```bash
-   git clone https://github.com/databricks/app-templates
-   cd e2e-chatbot-app-next
-   npm install
-   ```
-
-2. **Set up environment variables**:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Address the TODOs in `.env`, specifying your Databricks CLI profile and database connection details.
-
-3. **Run the application**:
-
-   ```bash
-   npm run dev
-   ```
-
-   The app starts on [localhost:3000](http://localhost:3000)
-
-### Optional Chat UI Features
-
-The chat UI supports two optional features that can be enabled by updating `databricks.yml`:
-
-### User Feedback
-
-Users can give thumbs up/down on assistant responses. Feedback is stored as [MLflow assessments](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/assessments) on the underlying traces, making it easy to review and act on in the MLflow Experiment Tracking UI.
-
-Feedback is **disabled by default**. See [Feedback Collection](#feedback-collection) for setup instructions.
-
-> **Note:** If you're using one of the conversational agent templates (e.g. `agent-openai-agents-sdk`, `agent-langgraph`), their `databricks.yml` already creates and binds an MLflow experiment — feedback works automatically after `databricks bundle deploy`, with no extra configuration required.
-
-### Persistent Chat History
-
-By default, conversation messages are stored in memory and lost when the server restarts. To persist chat history across sessions, bind a Lakebase database in `databricks.yml`.
-
-See [Database Modes](#database-modes) for setup instructions.
+The web app started from the Databricks Agent Chat Template (`e2e-chatbot-app-next`: ExpressJS + React + Vercel AI SDK) and was extended with a storefront, a checkout flow and custom agents.
 
 ---
 
-## Database Modes
+## Table of contents
 
-The application supports two operating modes:
+1. [What the system does](#1-what-the-system-does)
+2. [Architecture](#2-architecture)
+3. [Repository structure](#3-repository-structure)
+4. [Data layer](#4-data-layer)
+5. [Vector Search (AI Search)](#5-vector-search-ai-search)
+6. [Genie and the Supervisor agent](#6-genie-and-the-supervisor-agent)
+7. [Transaction Agent](#7-transaction-agent)
+8. [Web application](#8-web-application)
+9. [Two checkout paths](#9-two-checkout-paths)
+10. [Setup from scratch](#10-setup-from-scratch)
+11. [Testing](#11-testing)
+12. [How the project evolved](#12-how-the-project-evolved)
+13. [Problems we hit and how we fixed them](#13-problems-we-hit-and-how-we-fixed-them)
+14. [Known limitations](#14-known-limitations)
+15. [Roadmap](#15-roadmap)
+16. [Credits](#16-credits)
 
-#### Persistent Mode (with Database)
+---
 
-This is the default mode when database environment variables are configured. In this mode:
+## 1. What the system does
 
-- Chat conversations are saved to Postgres/Lakebase
-- Users can access their chat history via the sidebar
-- Conversations persist across sessions
-- A database connection is required (POSTGRES_URL or PGDATABASE env vars)
+| Capability | Chat assistant | Storefront UI |
+|---|---|---|
+| Browse / search products | Yes (Vector Search + Genie) | Yes (SQL-backed grid, category filter, search box) |
+| Add to cart | "Add this to my cart" | Add to Cart button, cart drawer opens automatically |
+| Remove from cart | — | Remove button in cart drawer |
+| Confirm cart | "Confirm my cart" | Confirm Cart & Continue |
+| Delivery location | "Chennai, Tamil Nadu" | Address page with saved addresses and a **+** button (city and state only) |
+| Payment | Method + card / UPI details in chat | Dedicated payment page with method-specific forms |
+| Place order | "Place the order" | Create Order button after payment succeeds |
+| Order history / tracking | "Where is my order?" | My Orders page and order detail page |
 
-#### Ephemeral Mode (without Database)
+Supported payment methods: **Credit Card, Debit Card, Net Banking (asks for UPI ID), Cash on Delivery**.
 
-The application can also run without a database. In this mode:
+---
 
-- Chat conversations work normally but are **not saved**
-- The sidebar shows "No chat history available"
-- A small "Ephemeral" indicator appears in the header
-- Users can still have conversations with the AI, but history is lost on page refresh
+## 2. Architecture
 
-#### Selecting a Database Mode
+```
+                        ┌──────────────────────────────┐
+                        │   Databricks App (this repo)  │
+                        │  React storefront + chat UI   │
+                        │  Express API                  │
+                        └───────┬─────────────┬─────────┘
+                                │             │
+             chat (streaming)   │             │  direct SQL (REST)
+                                ▼             ▼
+                ┌───────────────────────┐   ┌──────────────────────────┐
+                │  Supervisor agent     │   │ /api/products            │
+                │  (Agent Bricks MAS)   │   │ /api/checkout/*          │
+                └───┬──────────────┬────┘   └────────────┬─────────────┘
+                    │              │                     │
+        product search             │ cart / payment /    │
+                    ▼              ▼ order / tracking    ▼
+        ┌───────────────────┐   ┌───────────────────┐  ┌───────────────────────────┐
+        │ Vector Search     │   │ Transaction Agent │  │ SQL Warehouse             │
+        │ index + Genie     │   │ (MLflow           │  │ ap2_ecommerce.gold.*      │
+        │                   │   │  ResponsesAgent)  │─▶│ (Unity Catalog tables)    │
+        └───────────────────┘   └───────────────────┘  └───────────────────────────┘
+```
 
-The application will default to "Ephemeral mode" when no database environment variables are set.
-To run in persistent mode, ensure your environment contains the following database variables:
+| Component | Technology | Purpose |
+|---|---|---|
+| Product data | Delta table `ap2_ecommerce.gold.product_catalog` | Cleaned product catalog (~28.9k rows) |
+| Semantic search | Databricks Vector Search (Delta Sync, managed embeddings) | Natural-language product discovery |
+| Genie space | Databricks Genie | Filtering / reasoning over catalog fields |
+| Supervisor | Agent Bricks Multi-Agent Supervisor | Routes each message to the right tool |
+| Transaction Agent | MLflow `ResponsesAgent` on Model Serving | Cart, delivery location, payment, orders, tracking |
+| Web app | Databricks Apps (Node 20, Express, React, Vercel AI SDK) | Storefront, checkout pages, chat panel |
+| SQL access | SQL Warehouse + SQL Statement Execution API | Storefront and checkout reads/writes |
+
+---
+
+## 3. Repository structure
+
+```
+e2e-chatbot-app-next/
+├── app.yaml                          # Databricks App runtime config + env vars
+├── databricks.yml                    # Asset Bundle config (serving endpoint variable)
+├── client/src/
+│   ├── App.tsx                       # Routes
+│   ├── lib/
+│   │   ├── image-url.ts              # Upgrades low-res Amazon thumbnails to full size
+│   │   └── kharido-cart.ts           # Legacy client cart helpers
+│   ├── components/
+│   │   ├── chat.tsx, messages.tsx, message.tsx   # Chat UI (message.tsx renders tool calls)
+│   │   ├── chat-product-results.tsx              # Product cards inside chat
+│   │   └── kharido/
+│   │       ├── KharidoProductCard.tsx            # Product card (image, discount ribbon, price)
+│   │       └── KharidoProductGrid.tsx            # Staggered animated grid
+│   └── pages/
+│       ├── StorefrontPage.tsx        # Home: products, categories, cart drawer
+│       ├── CheckoutAddressPage.tsx   # Choose / add delivery city + state
+│       ├── CheckoutPaymentPage.tsx   # Payment method, details, success, Create Order
+│       ├── OrderDetailPage.tsx       # Order confirmation / details
+│       └── OrdersListPage.tsx        # Order history
+└── server/src/
+    ├── index.ts                      # Registers routers
+    └── routes/
+        ├── products.ts               # GET /api/products (SQL)
+        ├── checkout.ts               # /api/checkout/* deterministic checkout (SQL)
+        ├── cartActions.ts            # /api/cart/* legacy, calls Transaction Agent
+        └── chat.ts                   # Streams to the Supervisor endpoint
+```
+
+Notebook / SQL assets (kept alongside the repo or in the workspace):
+
+| File | Purpose |
+|---|---|
+| `create_product_catalog_index.py` | Creates the Vector Search index |
+| `create_transaction_tables.sql` | Creates the transaction tables |
+| `create_addresses_table.sql` | Creates `customer_addresses` |
+| `reset_demo_data.sql` | Clears carts / orders / payments for a clean demo |
+| `transaction_agent_final.py` | Transaction Agent source |
+
+---
+
+## 4. Data layer
+
+### Product catalog
+
+`ap2_ecommerce.gold.product_catalog`
+
+| Column | Type | Notes |
+|---|---|---|
+| product_id | string | Primary key (32-char hex) |
+| product_name | string | |
+| product_description | string | Embedded for vector search |
+| category | string | |
+| brand | string | |
+| pack_size_or_quantity | string | |
+| mrp | double | List price |
+| selling_price | double | Price charged |
+| discount_percent | double | |
+| seller | string | |
+| availability | string | e.g. `IN_STOCK` |
+| asin | string | |
+| image_url | string | Amazon-hosted image |
+
+The raw dataset was cleaned and loaded into the gold schema. A handful of rows (~37 of 28,909) had corrupted descriptions from CSV quote handling; this is negligible for search quality.
+
+### Transaction tables (`ap2_ecommerce.gold`)
+
+| Table | Used for |
+|---|---|
+| `intent_mandates` | Records the customer's purchase intent (AP2-style mandate) |
+| `carts` | Cart lines and status: `PENDING_CONFIRMATION` → `CONFIRMED` → `ORDERED`; stores `delivery_address` |
+| `payment_mandates` | Payment authorization / result, `payment_type`, `txn_id` |
+| `risk_flags` | Audit log of blocked payments |
+| `orders` | Placed orders |
+| `deliveries` | Tracking id, carrier, delivery status, estimated date |
+| `customer_addresses` | Saved city / state pairs for the storefront |
+
+Leftover tables from earlier iterations (`cart_mandates`, `user_intent_mandates`, `customers`) are not used by the current code.
+
+Create them by running `create_transaction_tables.sql` and `create_addresses_table.sql`.
+
+---
+
+## 5. Vector Search (AI Search)
+
+- **Endpoint:** `product_search_endpoint` (reused across rebuilds)
+- **Index:** `ap2_ecommerce.gold.product_catalog_index`
+- **Type:** Delta Sync, `TRIGGERED` pipeline
+- **Embedding:** managed, source column `product_description`, model `databricks-gte-large-en`
+- **Primary key:** `product_id`
+- **Prerequisite:** Change Data Feed enabled on the source table
+
+Run `create_product_catalog_index.py` as a notebook. The first sync of ~29k rows can take a long time on a small endpoint (it took hours in our environment). Watch **Rows indexed** on the index page in Catalog Explorer; progress that keeps climbing means it is healthy.
+
+Search results return each product's `doc_uri`, which **is the `product_id`**. The Supervisor uses this to add items to the cart reliably.
+
+---
+
+## 6. Genie and the Supervisor agent
+
+The Supervisor is built with the **Agent Bricks Multi-Agent Supervisor** (no-code builder).
+
+**Tools**
+
+1. `product_catalog_index` (Vector Search) and the product-catalog Genie space — product discovery only.
+2. The Transaction Agent endpoint `agents_ap2_ecommerce-gold-cart_agent` — everything else.
+
+**Key instruction rules**
+
+- Product search, browsing and comparison always go to the search tool, never to the Transaction Agent.
+- When adding to cart, send the exact id: `Add to cart product_id: <doc_uri>`. Never send only a name when an id is known — several products share names across sizes and variants.
+- Call each tool at most once per customer message; never invent a success message; relay tool errors honestly.
+- Never expose tool names, SQL, raw JSON or internal ids to the customer.
+- Forward confirmation, delivery location, payment method / details and order messages to the Transaction Agent unchanged.
+
+**Permissions:** the app's service principal needs `CAN_QUERY` on the Supervisor endpoint and on the agents it orchestrates (add them as resources in `databricks.yml`). End users need access to each sub-agent.
+
+---
+
+## 7. Transaction Agent
+
+`transaction_agent_final.py` — an MLflow `ResponsesAgent` (with `predict` and `predict_stream`) deployed to Model Serving.
+
+### Design choices
+
+- **No LLM inside the agent.** Intent detection is deterministic keyword / regex matching, so behavior is fast and predictable. (An optional LLM-assist layer is on the roadmap.)
+- **State lives in the database**, not in the conversation. Each turn the agent looks at the customer's latest cart / mandate rows to decide what the next step is.
+- **Always returns a valid response.** `predict` catches every exception and returns a friendly message.
+- **Payment gateway is simulated locally** (returns an approved `TXNSIM…` id) so the demo does not depend on external OAuth or network calls.
+
+### Conversation flow
+
+```
+Add to cart ─▶ Confirm cart ─▶ "Which city and state?" ─▶ "Proceed to payment"
+   ─▶ Choose method
+        ├─ Credit / Debit Card ─▶ ask card number + expiry ─▶ process payment
+        ├─ Net Banking        ─▶ ask UPI ID               ─▶ process payment
+        └─ Cash on Delivery   ─▶ confirmed immediately
+   ─▶ Payment success (amount, method, transaction id, time)
+   ─▶ "Place the order?" ─▶ Order created (product, qty, amount, location, order id, tracking id)
+   ─▶ Order status / delivery tracking on request
+```
+
+### Risk check
+
+Before a payment mandate is created, `risk_check()` flags the payment if the amount exceeds ₹100,000 or the payment amount does not match the live cart total. Flagged attempts are written to `risk_flags` and the payment is blocked. If the check itself fails, it fails **safe** (blocked).
+
+### Credentials
+
+The agent reads its connection settings from variables defined in a notebook cell above the class. Store them in a Databricks secret scope:
+
+```python
+SECRET_SCOPE = "<your-scope>"
+DB_HOSTNAME  = dbutils.secrets.get(scope=SECRET_SCOPE, key="<hostname-key>")
+DB_HTTP_PATH = dbutils.secrets.get(scope=SECRET_SCOPE, key="<http-path-key>")
+DB_TOKEN     = dbutils.secrets.get(scope=SECRET_SCOPE, key="<token-key>")
+DEFAULT_CUSTOMER_ID = "<same value as DEFAULT_CUSTOMER_ID in app.yaml>"
+```
+
+Use `dbutils.secrets.list(scope=...)` to confirm your actual key names.
+
+### Deploy
+
+```python
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        artifact_path="cart_agent",
+        python_model=transaction_agent,
+        registered_model_name="ap2_ecommerce.gold.cart_agent",
+    )
+    print("Logged as version:", model_info.registered_model_version)
+
+agents.deploy(
+    "ap2_ecommerce.gold.cart_agent",
+    model_info.registered_model_version,
+    scale_to_zero=True,
+)
+```
+
+Then confirm in **Serving** that the endpoint is serving the new version.
+
+---
+
+## 8. Web application
+
+### Environment (`app.yaml`)
+
+| Variable | Purpose |
+|---|---|
+| `DATABRICKS_SERVING_ENDPOINT` | Supervisor endpoint the chat talks to (from the `serving-endpoint` resource) |
+| `CART_AGENT_ENDPOINT` | Transaction Agent endpoint (legacy `/api/cart/*` routes) |
+| `SQL_WAREHOUSE_ID` | Warehouse used for storefront and checkout SQL |
+| `DATABRICKS_HOST` | Workspace URL |
+| `DEFAULT_CUSTOMER_ID` | Demo customer — **must equal** the agent's `DEFAULT_CUSTOMER_ID` |
+| `CHAT_GREETING`, `LOG_SSE_EVENTS` | UI greeting and SSE logging |
+
+App scopes: `model-serving`, `sql`.
+
+### Routes
+
+| Path | Page |
+|---|---|
+| `/` | Storefront |
+| `/checkout/address` | Delivery address |
+| `/checkout/payment` | Payment |
+| `/orders` | Order history |
+| `/orders/:orderId` | Order detail |
+| `/assistant` | Chat with the Supervisor |
+
+### API
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/products` | Catalog for the storefront |
+| `GET/POST /api/checkout/addresses` | List / create saved addresses |
+| `GET /api/checkout/cart` | Current cart with items and total |
+| `POST /api/checkout/cart/add` · `cart/remove` · `cart/confirm` | Cart operations |
+| `POST /api/checkout/pay` | Simulated payment |
+| `POST /api/checkout/order` | Create order and delivery record |
+| `GET /api/checkout/orders` · `orders/:id` | Order history / detail |
+
+These run SQL directly with the signed-in user's forwarded token — no LLM involved.
+
+### UI notes
+
+- Product cards show real images, brand badge, discount ribbon and strikethrough MRP, with hover lift and staggered fade-in (Framer Motion).
+- `client/src/lib/image-url.ts` removes Amazon's size token (e.g. `._SS40_`) so images load at full resolution instead of 40px thumbnails.
+- The chat panel auto-approves MCP tool-approval requests (a `useEffect` in `message.tsx` calls `submitApproval(..., approve: true)`), so customers never see Allow / Deny prompts. Real authorization happens conversationally: the customer must explicitly confirm the cart, choose and provide payment details, and confirm the order.
+
+### Deploy the app
 
 ```bash
-# Useful for local development
-POSTGRES_URL=...
-
-# OR
-
-# Handled for you when using Databricks Apps
-PGUSER=...
-PGPASSWORD=...
-PGDATABASE=...
-PGHOST=...
-```
-
-The app will detect the absence or precense of database configuration and automatically run in the correct mode.
-
-#### Enabling Database After Installation
-
-If you initially installed the template without database support (ephemeral mode) and want to add persistent chat history later, you can re-run the quickstart script:
-
-```bash
-./scripts/quickstart.sh
-```
-
-When prompted about enabling persistent chat history, select "Yes". The script will:
-- Uncomment the required database sections in `databricks.yml`
-- Optionally deploy the Lakebase database instance
-- Configure your `.env` file with database connection details
-- Run database migrations if the database is provisioned
-- Set up your local environment with the correct database settings
-
-The script handles all configuration automatically, including:
-- Detecting your Databricks workspace and authentication
-- Calculating the correct database instance name for your target environment
-- Retrieving the database host (PGHOST) after provisioning
-- Updating environment variables with the correct values
-
-**Manual Steps (Alternative):**
-
-If you prefer to enable the database manually:
-
-1. **Edit `databricks.yml`** - Uncomment both database sections:
-   - Database instance resource (`chatbot_lakebase`) around line 18
-   - Database resource binding (`- name: database`) around line 41
-
-2. **Deploy the database**:
-   ```bash
-   databricks bundle deploy
-   ```
-   (First deployment takes several minutes for provisioning)
-
-3. **Configure `.env`** with database variables:
-   ```bash
-   PGUSER=your-databricks-username
-   PGHOST=your-postgres-host  # Get with: ./scripts/get-pghost.sh
-   PGDATABASE=databricks_postgres
-   PGPORT=5432
-   ```
-
-4. **Run database migrations**:
-   ```bash
-   npm run db:migrate
-   ```
-
-## Feedback Collection
-
-The chat app supports optional thumbs up/down feedback on assistant messages. When enabled, feedback is stored as [MLflow assessments](https://docs.databricks.com/aws/en/generative-ai/agent-framework/chat-app) on the traces emitted by your agent endpoint, making it easy to review and act on in the MLflow UI.
-
-Feedback is **disabled by default**. A "Feedback disabled" badge appears in the header when it is not configured.
-
-> **Note:** Feedback vote persistence (restoring thumbs up/down state on page reload) requires a database. Both features can be enabled together in one step using the quickstart script.
-
-### Recommended: use the quickstart script
-
-The easiest way to enable feedback (and persistent chat history) is to run the interactive setup script:
-
-```bash
-./scripts/quickstart.sh
-```
-
-The script automatically:
-1. Looks up the MLflow experiment ID linked to your serving endpoint
-2. Uncomments and configures the feedback `TODO` block in `databricks.yml` (setting `experiment_id`) and the `MLFLOW_EXPERIMENT_ID` env var in `app.yaml`
-3. Uncomments both database `TODO` blocks in `databricks.yml` to provision and bind a Lakebase database
-
-After the script completes, run `databricks bundle deploy` to apply the changes.
-
-### Manual setup
-
-If you prefer to configure manually:
-
-**Step 1 — Find your experiment ID**
-
-```bash
-# For a custom-code agent or Agent Bricks serving endpoint
-npx tsx scripts/get-experiment-id.ts --endpoint <your-endpoint-name>
-
-# For an Agent Bricks Knowledge Assistant or Multi-Agent Supervisor
-npx tsx scripts/get-experiment-id.ts --agent-brick <agent-brick-name>
-```
-
-**Step 2 — Configure `databricks.yml`**
-
-Uncomment both database `TODO` blocks (required for vote persistence) and the feedback `TODO` block, setting the experiment ID from Step 1:
-
-```yaml
-- name: experiment
-  description: "MLflow experiment for collecting user feedback"
-  experiment:
-    experiment_id: "your-experiment-id"
-    permission: CAN_EDIT
-```
-
-**Step 3 — Configure `app.yaml`**
-
-Uncomment the `MLFLOW_EXPERIMENT_ID` environment variable:
-
-```yaml
-- name: MLFLOW_EXPERIMENT_ID
-  valueFrom: experiment
-```
-
-**Step 4 — Redeploy**:
-
-```bash
+databricks bundle validate
 databricks bundle deploy
 databricks bundle run databricks_chatbot
 ```
 
-Once deployed, the "Feedback disabled" badge disappears and the thumbs up/down buttons become active on assistant messages.
+Set `serving_endpoint_name` in `databricks.yml` to your Supervisor endpoint.
 
-### Enabling feedback for local development
+---
 
-Set `MLFLOW_EXPERIMENT_ID` in your `.env` file to the experiment ID from Step 1:
+## 9. Two checkout paths
 
-```bash
-MLFLOW_EXPERIMENT_ID=<your-experiment-id>
+| | Chat path | Click-through path |
+|---|---|---|
+| Entry | `/assistant` | Storefront `/` |
+| Logic | Supervisor → Transaction Agent (Python) | `checkout.ts` (SQL) |
+| Interpretation | Natural language + keyword matching | Deterministic buttons |
+| Risk check | Yes | **Not yet** (see roadmap) |
+| Data | Same tables | Same tables |
+
+Because both use the same `DEFAULT_CUSTOMER_ID` and tables, a cart started in chat appears in the storefront and vice versa.
+
+---
+
+## 10. Setup from scratch
+
+1. **Load and clean data** into `ap2_ecommerce.gold.product_catalog`.
+2. **Create tables:** run `create_transaction_tables.sql` and `create_addresses_table.sql`.
+3. **Create the Vector Search index:** run `create_product_catalog_index.py`; wait until the index is `ONLINE`.
+4. **Create the Genie space** over `product_catalog`.
+5. **Store credentials** in a secret scope; define the credential variables in the agent notebook.
+6. **Deploy the Transaction Agent** (section 7). Confirm the serving version.
+7. **Create the Supervisor** in Agent Bricks with the two tool groups and the instructions from section 6. Deploy it and note its endpoint name.
+8. **Configure the app:** set the Supervisor endpoint in `databricks.yml`; set `SQL_WAREHOUSE_ID`, `DATABRICKS_HOST`, `CART_AGENT_ENDPOINT`, `DEFAULT_CUSTOMER_ID` in `app.yaml`; grant the app's service principal `CAN_QUERY` on the serving endpoints and access to the warehouse and tables.
+9. **Deploy the app** (section 8).
+10. **Keep the warehouse warm** before demos (see below).
+
+---
+
+## 11. Testing
+
+We tested in three layers, from cheapest to most realistic.
+
+**1. Agent in the notebook (fastest)**
+
+```python
+def ask(msg):
+    r = transaction_agent.predict({"input": [{"role": "user", "content": msg}]})
+    item = r.output[0]
+    content = item["content"] if isinstance(item, dict) else item.content
+    first = content[0]
+    print(first["text"] if isinstance(first, dict) else first.text)
+    print("---")
+
+ask("Add <a real product name> to my cart")
+ask("confirm cart")
+ask("Chennai, Tamil Nadu")
+ask("proceed to payment")
+ask("cash on delivery")
+ask("place the order")
+ask("what's my order status")
 ```
 
-## Testing
+**2. Deployed endpoints in Playground** — test the Transaction Agent alone, then the Supervisor with the same sequence (search → add → confirm → location → pay → order → track).
 
-The project uses Playwright for end-to-end testing and supports dual-mode testing to verify behavior in both persistent and ephemeral modes.
+**3. The real app** — run the click-through flow on the storefront, then the same journey in the chat panel.
 
-### Test Modes
+**Clean state before every demo:** run `reset_demo_data.sql`. Leftover test rows under the single demo customer cause confusing results such as "cart already confirmed" or an unrelated product appearing in an order.
 
-Tests run in two separate modes to ensure both database and non-database functionality work correctly:
+**Keep the warehouse warm.** Small / free warehouses auto-stop and a cold start can exceed gunicorn's worker timeout. Run a keep-alive cell during demos:
 
-#### With Database Mode
+```python
+import time
+from databricks import sql as db_sql
 
-- Uses database environment variables (either set in .env or declared elsewhere)
-- Includes full Postgres database
-- Tests chat history persistence, pagination, and deletion
-- Will throw a warning and stop if no database exists
+def keep_warehouse_warm(interval_seconds=240):
+    while True:
+        try:
+            conn = db_sql.connect(server_hostname=DB_HOSTNAME,
+                                  http_path=DB_HTTP_PATH, access_token=DB_TOKEN)
+            cur = conn.cursor(); cur.execute("SELECT 1"); cur.fetchone()
+            cur.close(); conn.close()
+            print("Warehouse pinged", time.strftime("%H:%M:%S"))
+        except Exception as e:
+            print("Ping failed:", e)
+        time.sleep(interval_seconds)
 
-#### Ephemeral Mode
-
-- No database connection (all POSTGRES_URL and PG\* variables omitted)
-- Tests chat streaming without persistence
-- Ensures UI gracefully handles missing database
-
-### Running Tests
-
-**Run all tests (both modes sequentially)**:
-
-```bash
-npm test
+keep_warehouse_warm()
 ```
 
-This runs with-db tests first, then ephemeral tests. The server automatically restarts between modes with different configurations.
+---
 
-**Run specific mode**:
+## 12. How the project evolved
 
-```bash
-# Test with database only
-npm run test:with-db
+1. **Rebuild on a new dataset.** Replaced the earlier Brazilian e-commerce data with a cleaned product catalog in `ap2_ecommerce.gold` and rebuilt everything around it.
+2. **Search.** Deleted index → rebuilt a Delta Sync Vector Search index with managed embeddings on the existing endpoint.
+3. **Agents.** Created a Genie space, a new Transaction Agent and a Supervisor; repointed everything from the old `ap2_dev` catalog to `ap2_ecommerce`.
+4. **Storefront UI.** Rebuilt product cards, grid, header, category pills and cart drawer for the new schema, with real images and subtle animations.
+5. **Stabilizing the Transaction Agent.** Fixed streaming support, syntax and indentation bugs, missing tables, warehouse cold starts, gateway auth failures and product-name ambiguity (details below).
+6. **Full conversational checkout.** Added delivery city/state, payment method with card / UPI detail collection, payment success details, order creation and tracking.
+7. **Deterministic checkout.** Added dedicated routes and pages (address book, payment, order detail, order history) that talk to the tables directly, independent of any LLM.
+8. **Polish.** Removed tool-approval prompts from the chat, upgraded image resolution, tightened Supervisor instructions.
 
-# Test ephemeral mode only
-npm run test:ephemeral
-```
+---
 
-### Continuous Integration
+## 13. Problems we hit and how we fixed them
 
-The GitHub Actions workflow runs both test modes in separate jobs:
+| Symptom | Cause | Fix |
+|---|---|---|
+| Chat / cart spins forever; `NotImplementedError: Streaming implementation not provided` | Agent implemented only `predict` | Added `predict_stream` that emits the `predict` result |
+| `log_model` fails: `Input should be a valid dictionary or instance of ResponsesAgentResponse … NoneType` | Uncaught exception inside `predict` | Wrapped `predict` so it always returns a response |
+| Workers killed (`WORKER TIMEOUT … SIGKILL`) after minutes | SQL warehouse cold start blocking `db_sql.connect` | Keep-alive script; `_socket_timeout` on connections; retry wrapper |
+| "Something went wrong" on every non-add step | Methods written as `def_name` (missing space) and a mis-indented block that ran outside the `add_to_cart` branch | Corrected syntax and indentation |
+| `TABLE_OR_VIEW_NOT_FOUND` for `intent_mandates` | Transaction tables never created in `ap2_ecommerce` | `create_transaction_tables.sql` |
+| Products treated as "unavailable" | Availability check compared to `"in stock"`; data uses `IN_STOCK` | Normalize underscores before comparing |
+| `invalid_client: Client authentication failed` on payment | Service principal OAuth to the mock gateway failed | Simulated the gateway locally |
+| "Multiple products matched that product name" | Supervisor passed a name; catalog has several sizes / variants | Use `doc_uri` as `product_id`; agent now picks the closest match instead of failing; regex also accepts a bare hex id |
+| Supervisor claimed success after a tool error | Instruction-following gap | Explicit "never fabricate, relay errors" rule |
+| "confirm my cart" not recognized | Matcher required the exact phrase "confirm cart" | Match when both words appear |
+| Allow / Deny tool prompts in chat | MCP tool-approval gate rendered by the UI | Auto-approve in `message.tsx`; real confirmation stays conversational |
+| Blurry product images | Dataset URLs contain a 40px size token (`._SS40_`) | `getHighResImageUrl()` strips the token |
+| Stale carts / wrong product in an order | Test data accumulated under one demo customer | `reset_demo_data.sql` |
+| Duplicate cart additions | Supervisor called the agent twice for one request | "Call each tool at most once per message" rule |
 
-- **test-with-db**: Includes Postgres service, runs migrations, executes with-db tests
-- **test-ephemeral**: No Postgres, no migrations, executes ephemeral tests
+---
 
-Both jobs run in parallel for faster CI feedback.
+## 14. Known limitations
 
-## Known limitations
+- **Single demo customer** (`DEFAULT_CUSTOMER_ID`); no real user accounts or per-user carts.
+- **Simulated payments.** No real gateway, and card / UPI details are not validated or stored. Do not use real card data.
+- **Click-through checkout skips the risk check** that the chat path performs.
+- Addresses are **city and state only**.
+- Fuzzy name matching can pick a different size or variant when only a name is given; the `product_id` path avoids this.
+- Product images depend on Amazon's CDN; some very old listings only exist at small sizes.
+- Chat history persistence requires the optional Lakebase database (see the template docs).
+- Not compiled or load-tested in the authoring sandbox — run `npm install && npm run build` before deploying.
 
-- No support for image or other multi-modal inputs
-- The most common and officially recommended authentication methods for Databricks are supported: Databricks CLI auth for local development, and Databricks service principal auth for deployed apps. Other authentication mechanisms (PAT, Azure MSI, etc) are not currently supported.
-- We create one database per app, because the app code targets a fixed `ai_chatbot` schema within the database instance. To host multiple apps out of the same instance, you can:
-  - Update the database instance name in `databricks.yml`
-  - Update references to `ai_chatbot` in the codebase to your new desired schema name within the existing database instance
-  - Run `npm run db:generate` to regenerate database migrations
-  - Deploy your app
+---
 
-## Troubleshooting
+## 15. Roadmap
 
-### "reference does not exist" errors when running databricks bundle CLI commands
+- **LLM-assisted understanding inside the Transaction Agent** (planned): use a Databricks foundation model (for example `databricks-gpt-oss-20b` or `databricks-meta-llama-3-1-8b-instruct`) to classify messy phrasing and to choose between several catalog matches, with a hard timeout and automatic fallback to the current keyword logic.
+- Apply the same risk checks to `checkout.ts` `/pay`.
+- Real customer identity and per-user carts / addresses.
+- Real payment gateway integration.
+- Delivery status updates over time instead of a fixed "Shipped" record.
+- Native slide-in chat panel on the storefront (currently navigates to `/assistant`).
 
-If you get an error like the following (or other similar "reference does not exist" errors)
-while running `databricks bundle` commands, your Databricks CLI version may be out of date.
-Make sure to install the latest version of the Databricks CLI (per [Prerequisites](#prerequisites)) and try again.
+---
 
-```bash
-$ databricks bundle deploy
-Error: reference does not exist: ${workspace.current_user.domain_friendly_name}
+## 16. Credits
 
-Name: databricks-chatbot
-Target: dev
-Workspace:
-  User: user@company.com
-  Path: /Workspace/Users/user@company.com/.bundle/databricks-chatbot/dev
-```
-
-### "Resource not found" errors during databricks bundle deploy
-
-Errors like the following one can occur when attempting to deploy the app if the state of your bundle does not match the state of resources
-deployed in your workspace:
-
-```bash
-$ databricks bundle deploy
-Uploading bundle files to /Workspace/Users/user@company.com/.bundle/databricks-chatbot/dev/files...
-Deploying resources...
-Error: terraform apply: exit status 1
-
-Error: failed to update database_instance
-
-  with databricks_database_instance.chatbot_lakebase,
-  on bundle.tf.json line 45, in resource.databricks_database_instance.chatbot_lakebase:
-  45:       }
-
-Resource not found
-
-
-Updating deployment state...
-```
-
-This can happen if resources deployed via your bundle were then manually deleted, or resources specified by your bundle
-were manually created without using the `databricks bundle` CLI. To resolve this class of issue, inspect the state of the actual deployed resources
-in your workspace and compare it to the bundle state using `databricks bundle summary`. If there is a mismatch,
-[see docs](https://docs.databricks.com/aws/en/dev-tools/bundles/faqs#can-i-port-existing-jobs-pipelines-dashboards-and-other-databricks-objects-into-my-bundle) on how to
-manually bind (if resources were manually created) or unbind (if resources were manually deleted) resources
-from your current bundle state. In the above example, the `chatbot_lakebase` database instance resource
-was deployed via `databricks bundle deploy`, and then manually deleted. This broke subsequent deployments of the bundle
-(because bundle state indicated the resource should exist, but it did not in the workspace). Running `databricks bundle unbind chatbot_lakebase` updated bundle state to reflect the deletion of the instance,
-unblocking subsequent deployment of the bundle via `databricks bundle deploy`.
+The web app is built on the [Databricks Agent Chat Template](https://docs.databricks.com/aws/en/generative-ai/agent-framework/chat-app) (`app-templates/e2e-chatbot-app-next`). Optional template features — persistent chat history with Lakebase and MLflow feedback collection — are configured through `databricks.yml` and `app.yaml` as described in the template documentation.
