@@ -1,0 +1,22 @@
+command: ["npm", "run", "start"]
+runtime: nodejs20
+
+env:
+  - name: DATABRICKS_SERVING_ENDPOINT
+    value: "mas-49e1cd92-endpoint"
+  - name: CHAT_GREETING
+    value: "Hello, Welcome to KHARIDO! 👋"
+  - name: SQL_WAREHOUSE_ID
+    value: "4ff0419cefc7de00"
+  - name: DATABRICKS_HOST
+    value: "https://dbc-5bb28961-f272.cloud.databricks.com"
+  - name: CART_AGENT_ENDPOINT
+    value: "agents_ap2_ecommerce-gold-cart_agent"
+  - name: DEFAULT_CUSTOMER_ID
+    value: "CUST_DEMO_001"
+  - name: LOG_SSE_EVENTS
+    value: "true"
+
+scopes:
+  - model-serving
+  - sql
